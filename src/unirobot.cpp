@@ -5,6 +5,32 @@
 #include <vector>
 #include <algorithm>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/dijkstra_shortest_paths.hpp>
+
+class cEdge
+{
+public:
+    cEdge()
+        : myCost(1)
+    {
+    }
+    int myCost;
+};
+
+class cNode
+{
+public:
+    cNode() {}
+};
+
+using namespace boost;
+typedef boost::adjacency_list<
+    boost::listS,
+    boost::vecS,
+    boost::bidirectionalS,
+    cNode,
+    cEdge>
+    graph_t;
 
 struct sBiLink
 {
@@ -36,7 +62,9 @@ std::vector<std::string> ParseSpaceDelimited(
 
 std::vector<sBiLink> read(
     const std::string &fname,
-    std::vector<int> &vTurn)
+    std::vector<int> &vTurn,
+    sBiLink &start,
+    int& goal )
 {
     std::ifstream inf(fname);
     if (!inf.is_open())
@@ -74,17 +102,17 @@ std::vector<sBiLink> read(
                 std::cout << "bad start: " << line << "\n";
                 exit(1);
             }
-            src = atoi(token[1].c_str());
-            dir = atoi(token[2].c_str());
+            start.src = atoi(token[1].c_str());
+            start.dir = atoi(token[2].c_str());
             break;
 
         case 'g':
             if (token.size() != 2)
             {
-                std::cout << "bad start: " << line << "\n";
+                std::cout << "bad goal: " << line << "\n";
                 exit(1);
             }
-            dir = atoi(token[1].c_str());
+            goal = atoi(token[1].c_str());
             break;
 
         case 't':
@@ -166,15 +194,15 @@ void split(
             << "b\n";
     }
 }
+
 /// Create boost graph from combination of forward, backward and turning links
-void ConstructBoostGraph(
+graph_t ConstructBoostGraph(
     const std::vector<sBiLink> &vForward,
     const std::vector<sBiLink> &vBack,
     const std::vector<int> &vTurn)
 {
     const int dirOffset = 1000;
-    using namespace boost;
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS> graph_t;
+
     graph_t G;
 
     for (auto &l : vForward)
@@ -185,27 +213,62 @@ void ConstructBoostGraph(
     {
         boost::add_edge(dirOffset + l.src, dirOffset + l.dst, G);
     }
-    for( int n : vTurn )
+    for (int n : vTurn)
     {
-        boost::add_edge( n, dirOffset + n, G);
+        boost::add_edge(n, dirOffset + n, G);
     }
 
     std::string src, dst;
     graph_traits<graph_t>::edge_iterator ei, ei_end;
-    for (tie(ei, ei_end) = edges(G); ei != ei_end; ++ei) {
-        if( source(*ei, G) >= dirOffset )
-            src = std::to_string(source(*ei, G)-dirOffset ) + "b";
+    for (tie(ei, ei_end) = edges(G); ei != ei_end; ++ei)
+    {
+        if (source(*ei, G) >= dirOffset)
+            src = std::to_string(source(*ei, G) - dirOffset) + "b";
         else
-            src = std::to_string(source(*ei, G) ) + "f";
-        if( target(*ei, G) >= dirOffset )
-            dst = std::to_string(target(*ei, G)-dirOffset ) + "b";
+            src = std::to_string(source(*ei, G)) + "f";
+        if (target(*ei, G) >= dirOffset)
+            dst = std::to_string(target(*ei, G) - dirOffset) + "b";
         else
-            dst = std::to_string(target(*ei, G) ) + "f";
-        std::cout << "(" << src 
+            dst = std::to_string(target(*ei, G)) + "f";
+        std::cout << "(" << src
                   << "," << dst << ") ";
     }
     std::cout << "\n";
+
+    return G;
 }
+
+void Path(
+    graph_t &G,
+    sBiLink &start,
+    int goal )
+{
+    std::vector< int > p(num_vertices(G));
+    std::vector<int> vDist(num_vertices(G));
+    boost::dijkstra_shortest_paths(
+        G, start.src,
+        weight_map(get(&cEdge::myCost, G))
+            .predecessor_map(boost::make_iterator_property_map(
+                            p.begin(), get(boost::vertex_index, G)))
+            .distance_map(boost::make_iterator_property_map(
+                vDist.begin(), get(boost::vertex_index, G))));
+
+    std::vector<int> vpath;
+    vpath.push_back( goal );
+    while( 1 ) {
+        int next = p[ goal ];
+        vpath.push_back( next );
+        if( next == start.src )
+            break;
+        goal = next;
+    }
+    std::reverse(vpath.begin(),vpath.end());
+    
+    for( auto n : vpath )
+        std::cout << n << " -> ";
+    std::cout << "\n";
+}
+
 main(int argc, char *argv[])
 {
     std::cout << "unirobot\n";
@@ -218,10 +281,14 @@ main(int argc, char *argv[])
     }
 
     // read input file
+    sBiLink start;
+    int goal;
     std::vector<int> vTurn;
     auto vBiLink = read(
         argv[1],
-        vTurn);
+        vTurn,
+        start,
+        goal );
 
     // split graph
     std::vector<sBiLink> vForward;
@@ -232,8 +299,15 @@ main(int argc, char *argv[])
         vBack,
         vTurn);
 
-    ConstructBoostGraph(
+    // construct boost graph
+    auto G = ConstructBoostGraph(
         vForward,
         vBack,
         vTurn);
+
+    // find path from start to goal
+    Path( 
+        G,
+         start,
+         goal );
 }
