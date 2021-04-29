@@ -7,6 +7,7 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 
+/// edge properties
 class cEdge
 {
 public:
@@ -17,6 +18,7 @@ public:
     int myCost;
 };
 
+/// node properties
 class cNode
 {
 public:
@@ -31,6 +33,7 @@ public:
     std::string myName;
 };
 
+/// declaration of boost graph configuration
 using namespace boost;
 typedef boost::adjacency_list<
     boost::listS,
@@ -40,6 +43,7 @@ typedef boost::adjacency_list<
     cEdge>
     graph_t;
 
+/// declaration of structure holding link input data
 struct sBiLink
 {
     int src;
@@ -206,7 +210,12 @@ void split(
             << "b\n";
     }
 }
-
+/** Find node by name
+ * @return index of node found
+ * 
+ * If node by same bname already exists, return its index
+ * otherwise add a new node and return its index
+ */
 int findoradd(graph_t &G, const std::string &name)
 {
     for (int n = 0; n < num_vertices(G); n++)
@@ -243,9 +252,13 @@ graph_t ConstructBoostGraph(
     }
     for (int n : vTurn)
     {
+        // add edge begining and ending on node
+        // which allows the robot to turn around
+        // at zero cost
         auto s = findoradd(G, std::to_string(n) + "f");
         auto d = findoradd(G, std::to_string(n) + "b");
-        boost::add_edge(s, d, G);
+        auto e = boost::add_edge(s, d, G).first;
+        G[e].myCost = 0;
         boost::add_edge(d, s, G);
     }
 
@@ -263,8 +276,13 @@ graph_t ConstructBoostGraph(
 
     return G;
 }
-
-void Path(
+/** Find path
+ * @param[in] G the graph
+ * @param[in] start starting node info
+ * @param[in] goal index of node aiming for
+ * @return vector of node indices visited on path
+ */
+std::vector<int> Path(
     graph_t &G,
     sBiLink &start,
     int goal)
@@ -324,6 +342,7 @@ void Path(
             goalnode = goalb;
     }
 
+    // pick out path, starting at goal and finishing at start
     std::vector<int> vpath;
     vpath.push_back(goalnode);
     int prev = goalnode;
@@ -336,12 +355,11 @@ void Path(
             break;
         prev = next;
     }
+
+    // reverse so path goes from start to goal
     std::reverse(vpath.begin(), vpath.end());
 
-    std::cout << "\nPath: ";
-    for (auto n : vpath)
-        std::cout << G[n].myName << " -> ";
-    std::cout << "\n";
+    return vpath;
 }
 
 main(int argc, char *argv[])
@@ -381,8 +399,14 @@ main(int argc, char *argv[])
         vTurn);
 
     // find path from start to goal
-    Path(
+    auto vpath = Path(
         G,
         start,
         goal);
+
+    // display path found
+    std::cout << "\nPath: ";
+    for (auto n : vpath)
+        std::cout << G[n].myName << " -> ";
+    std::cout << "\n";
 }
