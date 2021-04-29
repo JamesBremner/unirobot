@@ -28,6 +28,9 @@ Input is a space delimited text file describing the links, stadting position and
 2 | goal node index
 
 ## Example input
+
+<img src="https://i.stack.imgur.com/o9uiq.png" ></a>
+
 ```
 l 1 2 0
 l 2 3 2
