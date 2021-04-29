@@ -18,6 +18,7 @@ Input is a space delimited text file describing the links, stadting position and
 |---|---|
 1 | s
 2 | starting node index
+3 | starting orientation:<br> f, forward <br> b, backward 
 
 
 ## goal
@@ -25,3 +26,13 @@ Input is a space delimited text file describing the links, stadting position and
 |---|---|
 1 | g
 2 | goal node index
+
+## Example input
+```
+l 1 2 0
+l 2 3 2
+l 2 4 1
+i 4 3 1
+s 1 f
+g 3
+```
