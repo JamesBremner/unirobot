@@ -35,7 +35,7 @@ Input is a space delimited text file describing the links, stadting position and
 l 1 2 0
 l 2 3 2
 l 2 4 1
-i 4 3 1
+l 4 3 1
 s 1 f
 g 3
 ```
