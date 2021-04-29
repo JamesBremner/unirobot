@@ -13,6 +13,12 @@ Input is a space delimited text file describing the links, stadting position and
 3 | dst node index
 4 | link description :<br> 0, any orientation <br> 1, forwards only<br>2, backwards only
 
+## turning nodes
+| Column | Description |
+|---|---|
+1 | t for turning node
+2 | index of node where robot can turn around
+
 ## start
 | Column | Description |
 |---|---|
@@ -36,6 +42,7 @@ l 1 2 0
 l 2 3 2
 l 2 4 1
 l 4 3 1
+t 3
 s 1 f
 g 3
 ```
