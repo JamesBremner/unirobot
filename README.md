@@ -83,6 +83,7 @@ Path: 1f -> 2f -> 4f ->
 
 Sample output when starts at 1 facing backwards and heading for 4 ( The robot needs to go via node 3, the only place it can turn around )
 
+```
 C:\Users\James\code\unirobot\bin>unirobot.exe inforward.txt
 unirobot
 l 1 2 0
@@ -113,31 +114,4 @@ Path: 1f -> 2f -> 4f ->
 Sample output when starts at 1 facing backwards and heading for 4 ( The robot needs to go via node 3, the only place it can turn around )
 
 ```
-C:\Users\James\code\unirobot\bin>unirobot.exe inbackward.txt
-unirobot
-l 1 2 0
-l 2 3 2
-l 2 4 1
-l 4 3 1
-t 3
-s 1 b
-g 4
-4 bidirectional links input
 
-Forward links
-1f - 2f
-2f - 4f
-4f - 3f
-
-Back links
-1b - 2b
-2b - 3b
-
-Turning Links
-3f - 3b
-
-Combined graph links
-(1f,2f) (2f,1f) (2f,4f) (4f,2f) (4f,3f) (3f,4f) (3f,3b) (1b,2b) (2b,1b) (2b,3b) (3b,2b) (3b,3f)
-
-Path: 1b -> 2b -> 3b -> 3f -> 4f ->
-```
