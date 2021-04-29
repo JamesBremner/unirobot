@@ -111,7 +111,6 @@ Combined graph links
 (1f,2f) (2f,1f) (2f,4f) (4f,2f) (4f,3f) (3f,4f) (3f,3b) (1b,2b) (2b,1b) (2b,3b) (3b,2b) (3b,3f)
 
 Path: 1f -> 2f -> 4f ->
-Sample output when starts at 1 facing backwards and heading for 4 ( The robot needs to go via node 3, the only place it can turn around )
 
 ```
 
