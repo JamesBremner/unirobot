@@ -20,14 +20,22 @@ public:
 class cNode
 {
 public:
-    cNode() {}
+    cNode(const std::string &name)
+        : myName(name)
+    {
+    }
+    cNode()
+        : myName("???")
+    {
+    }
+    std::string myName;
 };
 
 using namespace boost;
 typedef boost::adjacency_list<
     boost::listS,
     boost::vecS,
-    boost::bidirectionalS,
+    boost::directedS,
     cNode,
     cEdge>
     graph_t;
@@ -60,11 +68,12 @@ std::vector<std::string> ParseSpaceDelimited(
     return token;
 }
 
+/// read input
 std::vector<sBiLink> read(
     const std::string &fname,
     std::vector<int> &vTurn,
     sBiLink &start,
-    int& goal )
+    int &goal)
 {
     std::ifstream inf(fname);
     if (!inf.is_open())
@@ -103,7 +112,10 @@ std::vector<sBiLink> read(
                 exit(1);
             }
             start.src = atoi(token[1].c_str());
-            start.dir = atoi(token[2].c_str());
+            if (token[2] == "b")
+                start.dir = 2;
+            else
+                start.dir = 1;
             break;
 
         case 'g':
@@ -195,43 +207,57 @@ void split(
     }
 }
 
+int findoradd(graph_t &G, const std::string &name)
+{
+    for (int n = 0; n < num_vertices(G); n++)
+    {
+        if (G[n].myName == name)
+        {
+            return n;
+        }
+    }
+    return add_vertex(name, G);
+}
+
 /// Create boost graph from combination of forward, backward and turning links
 graph_t ConstructBoostGraph(
     const std::vector<sBiLink> &vForward,
     const std::vector<sBiLink> &vBack,
     const std::vector<int> &vTurn)
 {
-    const int dirOffset = 1000;
-
     graph_t G;
 
     for (auto &l : vForward)
     {
-        boost::add_edge(l.src, l.dst, G);
+        auto s = findoradd(G, std::to_string(l.src) + "f");
+        auto d = findoradd(G, std::to_string(l.dst) + "f");
+        boost::add_edge(s, d, G);
+        boost::add_edge(d, s, G);
     }
     for (auto &l : vBack)
     {
-        boost::add_edge(dirOffset + l.src, dirOffset + l.dst, G);
+        auto s = findoradd(G, std::to_string(l.src) + "b");
+        auto d = findoradd(G, std::to_string(l.dst) + "b");
+        boost::add_edge(s, d, G);
+        boost::add_edge(d, s, G);
     }
     for (int n : vTurn)
     {
-        boost::add_edge(n, dirOffset + n, G);
+        auto s = findoradd(G, std::to_string(n) + "f");
+        auto d = findoradd(G, std::to_string(n) + "b");
+        boost::add_edge(s, d, G);
+        boost::add_edge(d, s, G);
     }
 
-    std::string src, dst;
+    std::cout << "\nCombined graph links\n";
     graph_traits<graph_t>::edge_iterator ei, ei_end;
     for (tie(ei, ei_end) = edges(G); ei != ei_end; ++ei)
     {
-        if (source(*ei, G) >= dirOffset)
-            src = std::to_string(source(*ei, G) - dirOffset) + "b";
-        else
-            src = std::to_string(source(*ei, G)) + "f";
-        if (target(*ei, G) >= dirOffset)
-            dst = std::to_string(target(*ei, G) - dirOffset) + "b";
-        else
-            dst = std::to_string(target(*ei, G)) + "f";
-        std::cout << "(" << src
-                  << "," << dst << ") ";
+        std::cout
+            << "("
+            << G[source(*ei, G)].myName << ","
+            << G[target(*ei, G)].myName
+            << ") ";
     }
     std::cout << "\n";
 
@@ -241,31 +267,80 @@ graph_t ConstructBoostGraph(
 void Path(
     graph_t &G,
     sBiLink &start,
-    int goal )
+    int goal)
 {
-    std::vector< int > p(num_vertices(G));
+    // starting node in boost graph
+    int startNode = -1;
+    std::string startNodeName = std::to_string(start.src);
+    if (start.dir == 1)
+        startNodeName += "f";
+    else
+        startNodeName += "b";
+    for (int n = 0; n < num_vertices(G); n++)
+    {
+        if (G[n].myName == startNodeName)
+        {
+            startNode = n;
+            break;
+        }
+    }
+    if (startNode < 0)
+        throw std::runtime_error("Bad path start");
+    //std::cout << "start " << startNodeName << " " << startNode << "\n";
+
+    // goal nodes in boost graph
+    int goalf, goalb;
+    goalf = goalb = -1;
+    std::string sgf = std::to_string(goal) + "f";
+    std::string sgb = std::to_string(goal) + "b";
+    for (int n = 0; n < num_vertices(G); n++)
+    {
+        if (G[n].myName == sgf)
+            goalf = n;
+        if (G[n].myName == sgb)
+            goalb = n;
+    }
+    if (goalf < 0 && goalb < 0)
+        throw std::runtime_error("Bad path goal");
+
+    // run dijkstra algorithm
+    std::vector<int> p(num_vertices(G));
     std::vector<int> vDist(num_vertices(G));
     boost::dijkstra_shortest_paths(
-        G, start.src,
+        G, startNode,
         weight_map(get(&cEdge::myCost, G))
             .predecessor_map(boost::make_iterator_property_map(
-                            p.begin(), get(boost::vertex_index, G)))
+                p.begin(), get(boost::vertex_index, G)))
             .distance_map(boost::make_iterator_property_map(
                 vDist.begin(), get(boost::vertex_index, G))));
 
-    std::vector<int> vpath;
-    vpath.push_back( goal );
-    while( 1 ) {
-        int next = p[ goal ];
-        vpath.push_back( next );
-        if( next == start.src )
-            break;
-        goal = next;
+    // choose closest possible goal
+    int goalnode = goalf;
+    if (goalf < 0)
+        goalnode = goalb;
+    else
+    {
+        if (vDist[goalb] < vDist[goalf] )
+            goalnode = goalb;
     }
-    std::reverse(vpath.begin(),vpath.end());
-    
-    for( auto n : vpath )
-        std::cout << n << " -> ";
+
+    std::vector<int> vpath;
+    vpath.push_back(goalnode);
+    int prev = goalnode;
+    while (1)
+    {
+        //std::cout << prev << " " << p[prev] << ", ";
+        int next = p[prev];
+        vpath.push_back(next);
+        if (next == startNode)
+            break;
+        prev = next;
+    }
+    std::reverse(vpath.begin(), vpath.end());
+
+    std::cout << "\nPath: ";
+    for (auto n : vpath)
+        std::cout << G[n].myName << " -> ";
     std::cout << "\n";
 }
 
@@ -288,7 +363,7 @@ main(int argc, char *argv[])
         argv[1],
         vTurn,
         start,
-        goal );
+        goal);
 
     // split graph
     std::vector<sBiLink> vForward;
@@ -306,8 +381,8 @@ main(int argc, char *argv[])
         vTurn);
 
     // find path from start to goal
-    Path( 
+    Path(
         G,
-         start,
-         goal );
+        start,
+        goal);
 }
