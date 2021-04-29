@@ -71,8 +71,21 @@ void read( const std::string& fname )
                 std::cout << "bad start: " << line << "\n";
                 exit(1);
             }    
-            dir = atoi( token[2].c_str() ); 
+            dir = atoi( token[1].c_str() ); 
             break; 
+
+            case 't':
+            if( token.size() != 2 )
+            {
+                std::cout << "bad turning node: " << line << "\n";
+                exit(1);
+            }    
+            src = atoi( token[1].c_str() );
+            break;
+
+            default:
+            std::cout << "bad row: " << line << "\n";
+            break;
         }
     }
 }
