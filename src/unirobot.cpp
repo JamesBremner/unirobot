@@ -48,7 +48,55 @@ struct sBiLink
 {
     int src;
     int dst;
-    int dir; // allowed orientations
+    int dir; // allowed orientations of robot on link
+    int cost;
+};
+
+class cRobot
+{
+public:
+    graph_t myGraph;
+    std::vector<int> myPath;
+
+    graph_t ConstructBoostGraph(
+        const std::vector<sBiLink> &vForward,
+        const std::vector<sBiLink> &vBack,
+        const std::vector<int> &vTurn);
+
+    /** Find path
+ * @param[in] start starting node info
+ * @param[in] goal index of node aiming for
+ */
+    void Path(
+        sBiLink &start,
+        int goal);
+
+    std::string linksText();
+    std::string pathText();
+
+private:
+    /** Find or add node by name
+ * @return index of node found
+ * 
+ * If node by same bname already exists, return its index
+ * otherwise add a new node and return its index
+ */
+    int findoradd(const std::string &name);
+
+    /** Find node by name
+ * @return index of node found, -1 if not found
+ * 
+ */
+    int find(const std::string &name);
+
+    /** Add costed link
+     * @param[in] s mode index
+     * @param[in] d node index
+     * @param[in] cost
+     */
+    void addLink(
+        int s, int d,
+        int cost);
 };
 
 std::vector<std::string> ParseSpaceDelimited(
@@ -97,7 +145,7 @@ std::vector<sBiLink> read(
         switch (token[0][0])
         {
         case 'l':
-            if (token.size() != 4)
+            if (token.size() != 5)
             {
                 std::cout << "bad link: " << line << "\n";
                 exit(1);
@@ -106,6 +154,7 @@ std::vector<sBiLink> read(
             l.src = atoi(token[1].c_str());
             l.dst = atoi(token[2].c_str());
             l.dir = atoi(token[3].c_str());
+            l.cost = atoi(token[4].c_str());
             vBiLink.push_back(l);
             break;
 
@@ -132,7 +181,7 @@ std::vector<sBiLink> read(
             break;
 
         case 't':
-            if (token.size() != 2)
+            if (token.size() != 5)
             {
                 std::cout << "bad turning node: " << line << "\n";
                 exit(1);
@@ -210,157 +259,175 @@ void split(
             << "b\n";
     }
 }
+
 /** Find node by name
  * @return index of node found
  * 
  * If node by same bname already exists, return its index
  * otherwise add a new node and return its index
  */
-int findoradd(graph_t &G, const std::string &name)
+int cRobot::findoradd(const std::string &name)
 {
-    for (int n = 0; n < num_vertices(G); n++)
+    int n = find(name);
+    if (n < 0)
+        n = add_vertex(name, myGraph);
+    return n;
+}
+
+int cRobot::find(const std::string &name)
+{
+    for (int n = 0; n < num_vertices(myGraph); n++)
     {
-        if (G[n].myName == name)
+        if (myGraph[n].myName == name)
         {
             return n;
         }
     }
-    return add_vertex(name, G);
+    return -1;
 }
 
 /// Create boost graph from combination of forward, backward and turning links
-graph_t ConstructBoostGraph(
+graph_t cRobot::ConstructBoostGraph(
     const std::vector<sBiLink> &vForward,
     const std::vector<sBiLink> &vBack,
     const std::vector<int> &vTurn)
 {
-    graph_t G;
-
     for (auto &l : vForward)
     {
-        auto s = findoradd(G, std::to_string(l.src) + "f");
-        auto d = findoradd(G, std::to_string(l.dst) + "f");
-        boost::add_edge(s, d, G);
-        boost::add_edge(d, s, G);
+        auto s = findoradd(std::to_string(l.src) + "f");
+        auto d = findoradd(std::to_string(l.dst) + "f");
+        addLink(s, d, l.cost);
     }
     for (auto &l : vBack)
     {
-        auto s = findoradd(G, std::to_string(l.src) + "b");
-        auto d = findoradd(G, std::to_string(l.dst) + "b");
-        boost::add_edge(s, d, G);
-        boost::add_edge(d, s, G);
+        auto s = findoradd(std::to_string(l.src) + "b");
+        auto d = findoradd(std::to_string(l.dst) + "b");
+        addLink(s, d, l.cost);
     }
     for (int n : vTurn)
     {
         // add edge begining and ending on node
         // which allows the robot to turn around
         // at zero cost
-        auto s = findoradd(G, std::to_string(n) + "f");
-        auto d = findoradd(G, std::to_string(n) + "b");
-        auto e = boost::add_edge(s, d, G).first;
-        G[e].myCost = 0;
-        e = boost::add_edge(d, s, G).first;
-        G[e].myCost = 0;
+        auto s = findoradd(std::to_string(n) + "f");
+        auto d = findoradd(std::to_string(n) + "b");
+        addLink(s, d, 0);
     }
 
-    std::cout << "\nCombined graph links\n";
-    graph_traits<graph_t>::edge_iterator ei, ei_end;
-    for (tie(ei, ei_end) = edges(G); ei != ei_end; ++ei)
-    {
-        std::cout
-            << "("
-            << G[source(*ei, G)].myName << ","
-            << G[target(*ei, G)].myName
-            << ") ";
-    }
-    std::cout << "\n";
-
-    return G;
+    return myGraph;
 }
+
+void cRobot::addLink(
+    int s, int d,
+    int cost)
+{
+    graph_t::edge_descriptor e = add_edge(s, d, myGraph).first;
+    myGraph[e].myCost = cost;
+    e = add_edge(d, s, myGraph).first;
+    myGraph[e].myCost = cost;
+}
+
+std::string cRobot::linksText()
+{
+    std::stringstream ss;
+    //     for (int n = 0; n < num_vertices(myGraph); n++)
+    // {
+    //     std::cout << myGraph[n].myName << " ";
+    // }
+    // ss << "\n";
+
+    graph_traits<graph_t>::edge_iterator ei, ei_end;
+    for (tie(ei, ei_end) = edges(myGraph); ei != ei_end; ++ei)
+    {
+        ss << "("
+           << myGraph[source(*ei, myGraph)].myName << ","
+           << myGraph[target(*ei, myGraph)].myName << ","
+           << myGraph[*ei].myCost
+           << ") ";
+    }
+    ss << "\n";
+    return ss.str();
+}
+
 /** Find path
  * @param[in] G the graph
  * @param[in] start starting node info
  * @param[in] goal index of node aiming for
- * @return vector of node indices visited on path
  */
-std::vector<int> Path(
-    graph_t &G,
+void cRobot::Path(
     sBiLink &start,
     int goal)
 {
     // starting node in boost graph
-    int startNode = -1;
     std::string startNodeName = std::to_string(start.src);
     if (start.dir == 1)
         startNodeName += "f";
     else
         startNodeName += "b";
-    for (int n = 0; n < num_vertices(G); n++)
-    {
-        if (G[n].myName == startNodeName)
-        {
-            startNode = n;
-            break;
-        }
-    }
+    int startNode = find(startNodeName);
     if (startNode < 0)
+    {
+        std::cout << "start " << startNodeName << " " << startNode << "\n";
         throw std::runtime_error("Bad path start");
-    //std::cout << "start " << startNodeName << " " << startNode << "\n";
+    }
 
     // goal nodes in boost graph
-    int goalf, goalb;
-    goalf = goalb = -1;
     std::string sgf = std::to_string(goal) + "f";
     std::string sgb = std::to_string(goal) + "b";
-    for (int n = 0; n < num_vertices(G); n++)
-    {
-        if (G[n].myName == sgf)
-            goalf = n;
-        if (G[n].myName == sgb)
-            goalb = n;
-    }
+    int goalf = find(sgf);
+    int goalb = find(sgb);
     if (goalf < 0 && goalb < 0)
         throw std::runtime_error("Bad path goal");
 
     // run dijkstra algorithm
-    std::vector<int> p(num_vertices(G));
-    std::vector<int> vDist(num_vertices(G));
+    std::vector<int> p(num_vertices(myGraph));
+    std::vector<int> vDist(num_vertices(myGraph));
     boost::dijkstra_shortest_paths(
-        G, startNode,
-        weight_map(get(&cEdge::myCost, G))
+        myGraph,
+        startNode,
+        weight_map(get(&cEdge::myCost, myGraph))
             .predecessor_map(boost::make_iterator_property_map(
-                p.begin(), get(boost::vertex_index, G)))
+                p.begin(), get(boost::vertex_index, myGraph)))
             .distance_map(boost::make_iterator_property_map(
-                vDist.begin(), get(boost::vertex_index, G))));
+                vDist.begin(), get(boost::vertex_index, myGraph))));
 
     // choose closest possible goal
     int goalnode = goalf;
-    if (goalf < 0)
-        goalnode = goalb;
+    if (goalf < 0 || goalb < 0)
+    {
+        if (goalf < 0)
+            goalnode = goalb;
+    }
     else
     {
-        if (vDist[goalb] < vDist[goalf] )
+        if (vDist[goalb] < vDist[goalf])
             goalnode = goalb;
     }
 
     // pick out path, starting at goal and finishing at start
-    std::vector<int> vpath;
-    vpath.push_back(goalnode);
+    myPath.push_back(goalnode);
     int prev = goalnode;
     while (1)
     {
         //std::cout << prev << " " << p[prev] << ", ";
         int next = p[prev];
-        vpath.push_back(next);
+        myPath.push_back(next);
         if (next == startNode)
             break;
         prev = next;
     }
 
     // reverse so path goes from start to goal
-    std::reverse(vpath.begin(), vpath.end());
+    std::reverse(myPath.begin(), myPath.end());
+}
 
-    return vpath;
+std::string cRobot::pathText()
+{
+    std::stringstream ss;
+    for (auto n : myPath)
+        ss << myGraph[n].myName << " -> ";
+    ss << "\n";
+    return ss.str();
 }
 
 main(int argc, char *argv[])
@@ -373,6 +440,8 @@ main(int argc, char *argv[])
         std::cout << "usage: unirobot <inputfilename>\n";
         exit(0);
     }
+
+    cRobot Robot;
 
     // read input file
     sBiLink start;
@@ -394,20 +463,20 @@ main(int argc, char *argv[])
         vTurn);
 
     // construct boost graph
-    auto G = ConstructBoostGraph(
+    auto G = Robot.ConstructBoostGraph(
         vForward,
         vBack,
         vTurn);
 
+    std::cout << "\nCombined graph links\n"
+              << Robot.linksText();
+
     // find path from start to goal
-    auto vpath = Path(
-        G,
+    Robot.Path(
         start,
         goal);
 
     // display path found
-    std::cout << "\nPath: ";
-    for (auto n : vpath)
-        std::cout << G[n].myName << " -> ";
-    std::cout << "\n";
+    std::cout << "\nPath: "
+              << Robot.pathText();
 }

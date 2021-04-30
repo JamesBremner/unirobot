@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "optional": "cpp",
+        "future": "cpp",
+        "valarray": "cpp",
+        "variant": "cpp"
+    }
+}
