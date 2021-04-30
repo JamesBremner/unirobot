@@ -259,7 +259,8 @@ graph_t ConstructBoostGraph(
         auto d = findoradd(G, std::to_string(n) + "b");
         auto e = boost::add_edge(s, d, G).first;
         G[e].myCost = 0;
-        boost::add_edge(d, s, G);
+        e = boost::add_edge(d, s, G).first;
+        G[e].myCost = 0;
     }
 
     std::cout << "\nCombined graph links\n";
