@@ -12,12 +12,16 @@ Input is a space delimited text file describing the links, stadting position and
 2 | src node index
 3 | dst node index
 4 | link description :<br> 0, any orientation <br> 1, forwards only<br>2, backwards only
+5 | cost
 
 ## turning nodes
 | Column | Description |
 |---|---|
 1 | t for turning node
 2 | index of node where robot can turn around
+3 | not used, enter "."
+4 | not used, enter "."
+5 | cost
 
 ## start
 | Column | Description |
@@ -38,11 +42,11 @@ Input is a space delimited text file describing the links, stadting position and
 <img src="https://i.stack.imgur.com/o9uiq.png" ></a>
 
 ```
-l 1 2 0
-l 2 3 2
-l 2 4 1
-l 4 3 1
-t 3
+l 1 2 0 1
+l 2 3 2 1
+l 2 4 1 1
+l 4 3 1 1
+t 3 . . 0
 s 1 f
 g 3
 ```
@@ -54,11 +58,11 @@ Sample output when robot starts at 1 facing forwards and heading for 4 ( the rob
 ```
 C:\Users\James\code\unirobot\bin>unirobot.exe inforward.txt
 unirobot
-l 1 2 0
-l 2 3 2
-l 2 4 1
-l 4 3 1
-t 3
+l 1 2 0 1
+l 2 3 2 1
+l 2 4 1 1
+l 4 3 1 1
+t 3 . . 0
 s 1 f
 g 4
 4 bidirectional links input
