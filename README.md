@@ -1,3 +1,5 @@
+Note:  This is no longer supported.  It has been replaced by a pecialization of a general purpose path finder engine.  See https://github.com/JamesBremner/PathFinder
+
 # unirobot
 Find path for unidirectional robot in bidirectional graph
 
